@@ -1,1 +1,5 @@
 .idea
+train_en.pickle
+train_zh.pickle
+.vector_cache
+en-zh
