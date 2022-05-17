@@ -1,6 +1,7 @@
 .idea
 train_en.pickle
 train_zh.pickle
+train_en_encode.pickle
 .vector_cache
 en-zh
 .ipynb_checkpoints

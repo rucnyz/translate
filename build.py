@@ -15,6 +15,7 @@ from torchdata.datapipes.iter import FileOpener, FileLister
 from torchtext.data import get_tokenizer
 from torchtext.functional import to_tensor
 from torchtext.vocab import build_vocab_from_iterator
+from torchtext import transforms
 
 
 def seed_everything(seed = 123):
@@ -88,7 +89,12 @@ def build_vocab(args):
     return tokenizer_en, tokenizer_cn, vocab_en, vocab_cn
 
 
-def build_pipe(args, vocab_en, vocab_cn, tokenizer_en, tokenizer_cn, transform, en_file, cn_file):
+def build_pipe(args, vocab_en, vocab_cn, tokenizer_en, tokenizer_cn, en_file, cn_file):
+    # 构建插入开始结尾符转换器
+    transform = transforms.Sequential(
+        transforms.AddToken(token = args.bos_idx, begin = True),
+        transforms.AddToken(token = args.eos_idx, begin = False),
+    )
     # 开始训练重新读数据
     en_iter = FileLister([en_file])
     en_iter = FileOpener(en_iter).readlines().map(lambda x: x[1])

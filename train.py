@@ -5,7 +5,6 @@
 # @Software: PyCharm
 
 from torch.utils.data import DataLoader
-from torchtext import transforms
 
 from build import build_pipe, build_vocab, compute_args
 
@@ -24,16 +23,10 @@ if __name__ == '__main__':
     args = compute_args(data_root)
     # 构建字典
     tokenizer_en, tokenizer_cn, vocab_en, vocab_cn = build_vocab(args)
-    # 构建插入开始结尾符转换器
-    transform = transforms.Sequential(
-        transforms.AddToken(token = args.bos_idx, begin = True),
-        transforms.AddToken(token = args.eos_idx, begin = False),
-    )
     # 构建iterator和loader
-    train_iter = build_pipe(args, vocab_en, vocab_cn, tokenizer_en, tokenizer_cn, transform, args.train_en_file,
+    train_iter = build_pipe(args, vocab_en, vocab_cn, tokenizer_en, tokenizer_cn, args.train_en_file,
                             args.train_cn_file)
-    test_iter = build_pipe(args, vocab_en, vocab_cn, tokenizer_en, tokenizer_cn, transform, args.test_en_file,
-                           args.test_cn_file)
+    test_iter = build_pipe(args, vocab_en, vocab_cn, tokenizer_en, tokenizer_cn, args.test_en_file, args.test_cn_file)
     train_data = DataLoader(dataset = train_iter, batch_size = None)
     test_data = DataLoader(dataset = test_iter, batch_size = None)
 
