@@ -3,3 +3,5 @@ train_en.pickle
 train_zh.pickle
 .vector_cache
 en-zh
+.ipynb_checkpoints
+attn_data

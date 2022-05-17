@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="root@region-3.autodl.com:45554" remoteFilesAllowedToDisappearOnAutoupload="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="autodl 卓越计划" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
       <paths name="4GPU fengjiao_gong">
         <serverdata>
@@ -37,7 +37,7 @@
           </mappings>
         </serverdata>
       </paths>
-      <paths name="root@region-3.autodl.com:45554">
+      <paths name="autodl 卓越计划">
         <serverdata>
           <mappings>
             <mapping deploy="/root/autodl-tmp/attention" local="$PROJECT_DIR$" />
