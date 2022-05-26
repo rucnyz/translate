@@ -1,7 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="autodl 卓越计划" remoteFilesAllowedToDisappearOnAutoupload="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="autodl 3090" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
+      <paths name="3 GPU 48G wangqingmei">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
       <paths name="4GPU fengjiao_gong">
         <serverdata>
           <mappings>
@@ -26,7 +33,7 @@
       <paths name="autodl 3090">
         <serverdata>
           <mappings>
-            <mapping local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/root/autodl-tmp/translate" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>

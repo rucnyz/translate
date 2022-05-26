@@ -6,3 +6,4 @@ train_en_encode.pickle
 en-zh
 .ipynb_checkpoints
 attn_data
+data
