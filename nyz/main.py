@@ -4,8 +4,8 @@ import torch
 from torch.utils.data import DataLoader
 from timeit import default_timer as timer
 from build import build_pipe, build_vocab, compute_args
-from nyz.model import LuongEncoder, LuongDecoder, seq2seq
-from nyz.train_attn import train_epoch, evaluate
+from model import LuongEncoder, LuongDecoder, seq2seq
+from train_attn import train_epoch, evaluate
 
 if os.getcwd().endswith("nyz"):
     os.chdir("..")
@@ -46,7 +46,15 @@ decoder = LuongDecoder(vocab_size = len(zh_wtoi), embed_size = args.emb_size, en
 # decoder = PlainDecoder(vocab_size = len(zh_wtoi), embed_size = EMBED_SIZE, enc_hidden_size = ENC_HIDDEN_SIZE,
 #                        dec_hidden_size = DEC_HIDDEN_SIZE, dropout = DROPOUT)
 model = seq2seq(encoder, decoder)
-model = model.to(args.device)
+
+# device_ids = [0, 1]
+# model = torch.nn.DataParallel(model, device_ids = device_ids)
+# 使用分布式训练
+local_rank = int(os.environ["LOCAL_RANK"])
+torch.cuda.set_device(local_rank)
+torch.distributed.init_process_group(backend = 'nccl')
+model = model.cuda()
+model = torch.nn.parallel.DistributedDataParallel(model)
 
 loss_fn = torch.nn.CrossEntropyLoss(ignore_index = args.padding_idx)  # 忽略padding位置的损失
 optimizer = torch.optim.Adam(model.parameters())
@@ -82,7 +90,7 @@ for epoch in range(1, args.epoch + 1):
     start_time = timer()
     train_loss = train_epoch(model, optimizer, train_data, loss_fn, args)
     end_time = timer()
-    val_loss = evaluate(model, dev_data, loss_fn,args)
+    val_loss = evaluate(model, dev_data, loss_fn, args)
     print("Epoch: {}, Train loss: {:.3f}, Val loss: {:.3f}, Epoch time = {:.3f}s".format(epoch, train_loss, val_loss,
                                                                                          (end_time - start_time)))
 

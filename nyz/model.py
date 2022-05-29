@@ -3,24 +3,12 @@
 # @Author  : HCY
 # @File    : model.py
 # @Software: PyCharm
-import numpy as np
-import jieba
-from collections import Counter  # 计数器
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn.utils.rnn import pad_sequence, pack_padded_sequence, pad_packed_sequence
-from torchtext.data.utils import get_tokenizer  # 分词器
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
-UNK_IDX = 0  # 未知
 PAD_IDX = 1  #
-BATCH_SIZE = 64
-EPOCHS = 30
-DROPOUT = 0.2
-ENC_HIDDEN_SIZE = DEC_HIDDEN_SIZE = 100
-EMBED_SIZE = 100
-DEBUG = True
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class PlainDecoder(nn.Module):
@@ -31,7 +19,7 @@ class PlainDecoder(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.out = nn.Linear(dec_hidden_size, vocab_size)
 
-    def forward(self, encoder_out, x, y, y_lengths, hid):  ## (encoder_out. hid)对应LuongEncoder的输出(outputs, hidden)
+    def forward(self, encoder_out, x, y, y_lengths, hid):  # (encoder_out. hid)对应LuongEncoder的输出(outputs, hidden)
         y = self.dropout(self.embedding(y))
         packed = pack_padded_sequence(y, y_lengths.long().cpu().data.numpy(), batch_first = True,
                                       enforce_sorted = False)
@@ -61,15 +49,19 @@ class LuongEncoder(nn.Module):
         input_seqs : batch_size,max(x_lengths)
         input_lengths: batch_size
         """
+        total_length = x.size(1)
         embedded = self.dropout(self.embedding(x))  # batch_size,max(x_lengths),embed_size
         packed = pack_padded_sequence(embedded, x_lengths.long().cpu().data.numpy(), batch_first = True,
                                       enforce_sorted = False)
+
         # batch_first = False (seq, batch, feature)  batch_first = True (batch, seq, feature)
 
         # 压缩填充张量,压缩掉无效的填充值
         # enforce_sorted：如果是 True ，则输入应该是按长度降序排序的序列。如果是 False ，会在函数内部进行排序
         outputs, hidden = self.rnn(packed)
-        outputs, _ = pad_packed_sequence(outputs, padding_value = PAD_IDX, batch_first = True)  # 还原
+
+        outputs, _ = pad_packed_sequence(outputs, padding_value = PAD_IDX, batch_first = True,
+                                         total_length = total_length)  # 还原
 
         # hidden (2, batch_size, enc_hidden_size)  # 2:双向
         # outputs (batch_size,seq_len, 2 * enc_hidden_size)  h_s
@@ -101,6 +93,7 @@ class Attn(nn.Module):
         score = torch.bmm(output, encoder_out1.transpose(1, 2))  # 实现三维数组的乘法，而不用拆成二维数组使用for循环解决
         # [batch_size,max(y_lengths),dec_hidden_size] * [batch_size,dec_hidden_size,max(x_lengths)]
         # batch_size,max(y_lengths),max(x_lengths)  #score = h_t W h_s
+
         score.data.masked_fill(mask, -1e16)
         attn = F.softmax(score, dim = 2)  # attention系数矩阵, mask均为0
         # mask的size是(batch_size,n,m)
@@ -122,6 +115,16 @@ class Attn(nn.Module):
         return output, attn
 
 
+def creat_mask(x, y):
+    x_mask = x.data != PAD_IDX  # batch_size,max(x_lengths)  # 不等于为true，不是padding
+    y_mask = y.data != PAD_IDX  # batch_size,max(y_lengths)
+    mask = (1 - (x_mask.unsqueeze(2) * y_mask.unsqueeze(1)).float()).bool()  # true为padding
+    # unsqueeze增加维度
+    # batch_size,max(x_lengths),max(y_lengths)
+    # attn为batch_size,max(y_lengths),max(x_lengths)，因此y与x对调
+    return mask
+
+
 class LuongDecoder(nn.Module):
     def __init__(self, vocab_size, embed_size, enc_hidden_size, dec_hidden_size, dropout):
         super(LuongDecoder, self).__init__()
@@ -131,23 +134,15 @@ class LuongDecoder(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.out = nn.Linear(dec_hidden_size, vocab_size)
 
-    def creat_mask(self, x, y):
-        x_mask = x.data != PAD_IDX  # batch_size,max(x_lengths)  # 不等于为true，不是padding
-        y_mask = y.data != PAD_IDX  # batch_size,max(y_lengths)
-        mask = (1 - (x_mask.unsqueeze(2) * y_mask.unsqueeze(1)).float()).bool()  # true为padding
-        # unsqueeze增加维度
-        # batch_size,max(x_lengths),max(y_lengths)
-        # attn为batch_size,max(y_lengths),max(x_lengths)，因此y与x对调
-        return mask
-
-    def forward(self, encoder_out, x, y, y_lengths, hid):  ## (encoder_out. hid)对应LuongEncoder的输出(outputs, hidden)
-        mask = self.creat_mask(y, x)
+    def forward(self, encoder_out, x, y, y_lengths, hid):  # (encoder_out. hid)对应LuongEncoder的输出(outputs, hidden)
+        total_length = y.size(1)
+        mask = creat_mask(y, x)
         y = self.dropout(self.embedding(y))
         packed = pack_padded_sequence(y, y_lengths.long().cpu().data.numpy(), batch_first = True,
                                       enforce_sorted = False)
         out, hid = self.rnn(packed, hid)  # x的 hid和y同时输入到decoder
 
-        out, _ = pad_packed_sequence(out, padding_value = PAD_IDX, batch_first = True)
+        out, _ = pad_packed_sequence(out, padding_value = PAD_IDX, batch_first = True, total_length = total_length)
 
         output, attn = self.attention(out, encoder_out, mask)  # 输入enc和dec的hidden
         output = self.out(output)
@@ -162,12 +157,8 @@ class seq2seq(nn.Module):
         self.decoder = decoder
 
     def forward(self, x, x_lengths, y, y_lengths):
-        encoder_out, hid = self.encoder(x, x_lengths)
-        output, hid, attn = self.decoder(encoder_out,  # 这里输出的hid是decoder_rnn的hid
-                                         x = x,
-                                         y = y,
-                                         y_lengths = y_lengths,
-                                         hid = hid)  # encoder的hid
+        encoder_out, hid = self.encoder(x, x_lengths)  # 这里输出的hid是decoder_rnn的hid
+        output, hid, attn = self.decoder(encoder_out, x = x, y = y, y_lengths = y_lengths, hid = hid)  # encoder的hid
         return output, attn
 
     def translate(self, x, x_lengths, y, max_length = 15):

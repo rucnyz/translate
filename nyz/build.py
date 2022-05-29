@@ -32,10 +32,17 @@ def compute_args(data_root):
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', type = str, default = "Transformer", choices = ["Transformer"])
     parser.add_argument('--batch_size', type = int, default = 50)
+    parser.add_argument('--epoch', type = int, default = 3)
     parser.add_argument('--vocab_size', type = int, default = 50000)
     parser.add_argument('--truncate_size', type = int, default = 128)
     parser.add_argument('--device', type = str, default = "cpu", choices = ["cpu", "cuda"])
     parser.add_argument('--seed', type = int, default = 123)
+
+    parser.add_argument('--enc_hidden_size', type = int, default = 100)
+    parser.add_argument('--dec_hidden_size', type = int, default = 100)
+    parser.add_argument('--emb_size', type = int, default = 100)
+    parser.add_argument('--dropout', type = float, default = 0.2)
+
     args = parser.parse_args()
     # 设置随机数种子
     seed_everything(args.seed)

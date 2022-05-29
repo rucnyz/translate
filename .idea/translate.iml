@@ -11,7 +11,7 @@
       <excludeFolder url="file://$MODULE_DIR$/sy/.ipynb_checkpoints" />
       <excludeFolder url="file://$MODULE_DIR$/data" />
     </content>
-    <orderEntry type="jdk" jdkName="Remote Python 3.8.13 (autodl_3090)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Remote Python 3.8.13 (卓越计划)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
   <component name="PyDocumentationSettings">
