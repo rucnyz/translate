@@ -3,7 +3,7 @@
 ```shell
 cd ~/autodl-tmp/attention/nyz/
 #python -m torch.distributed.launch --nproc_per_node=2 main.py --vocab_size 50000 --batch_size 32 --truncate_size 128 --device cuda
-torchrun --standalone --nnodes=1 --nproc_per_node=2 main.py --vocab_size 50000 --batch_size 32 --truncate_size 128 --device cuda
+torchrun --standalone --nnodes=1 --nproc_per_node=2 main.py --vocab_size 50000 --batch_size 64 --truncate_size 128 --device cuda --num_workers 4
 ```
 
 参数量

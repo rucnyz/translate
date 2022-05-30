@@ -1,14 +1,13 @@
 import os
+from timeit import default_timer as timer
 
 import torch
 from torch.utils.data import DataLoader
-from timeit import default_timer as timer
-from build import build_pipe, build_vocab, compute_args
-from model import LuongEncoder, LuongDecoder, seq2seq
-from train_attn import train_epoch, evaluate
 
-if os.getcwd().endswith("nyz"):
-    os.chdir("..")
+from build import build_vocab, compute_args
+from model import LuongEncoder, LuongDecoder, seq2seq
+from textDataset import textDataset, pad_text
+from train_attn import train_epoch, evaluate
 
 
 # 可视化迭代器的前num个元素
@@ -19,29 +18,40 @@ def visualize(iters, num = 5):
             break
 
 
+if os.getcwd().endswith("nyz"):
+    os.chdir("..")
+
+# 分布式训练
+torch.distributed.init_process_group(backend = 'nccl')
 # 基本配置
 data_root = "en-zh/"
 args = compute_args(data_root)
 # 构建字典
 tokenizer_en, tokenizer_cn, vocab_en, vocab_cn = build_vocab(args)
 # 构建iterator和loader
-train_iter = build_pipe(args, vocab_en, vocab_cn, tokenizer_en, tokenizer_cn, args.train_en_file,
-                        args.train_cn_file)
-test_iter = build_pipe(args, vocab_en, vocab_cn, tokenizer_en, tokenizer_cn, args.test_en_file, args.test_cn_file)
-train_data = DataLoader(dataset = train_iter, batch_size = None)
-dev_data = DataLoader(dataset = test_iter, batch_size = None)
+train_dataset = textDataset(args, args.train_en_file, args.train_cn_file, vocab_en, vocab_cn, tokenizer_en,
+                            tokenizer_cn)
+test_dataset = textDataset(args, args.test_en_file, args.test_cn_file, vocab_en, vocab_cn, tokenizer_en, tokenizer_cn)
+# train_iter = build_pipe(args, vocab_en, vocab_cn, tokenizer_en, tokenizer_cn, args.train_en_file,
+#                         args.train_cn_file)
+# test_iter = build_pipe(args, vocab_en, vocab_cn, tokenizer_en, tokenizer_cn, args.test_en_file, args.test_cn_file)
+train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
+test_sampler = torch.utils.data.distributed.DistributedSampler(test_dataset)
+# train_data = DataLoader(dataset = train_iter, batch_size = None, shuffle = False)
+# dev_data = DataLoader(dataset = test_iter, batch_size = None, shuffle = False)
 
-en_wtoi = vocab_en
-zh_wtoi = vocab_cn
-
+train_data = DataLoader(dataset = train_dataset, batch_size = args.batch_size, shuffle = False, sampler = train_sampler,
+                        collate_fn = lambda x: pad_text(x, args.padding_idx), num_workers = args.num_workers)
+dev_data = DataLoader(dataset = test_dataset, batch_size = args.batch_size, shuffle = False, sampler = test_sampler,
+                      collate_fn = lambda x: pad_text(x, args.padding_idx), num_workers = args.num_workers)
 # ---------------------------------------------------------
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Define Model
-encoder = LuongEncoder(vocab_size = len(en_wtoi), embed_size = args.emb_size, enc_hidden_size = args.enc_hidden_size,
+encoder = LuongEncoder(vocab_size = len(vocab_en), embed_size = args.emb_size, enc_hidden_size = args.enc_hidden_size,
                        dec_hidden_size = args.dec_hidden_size, dropout = args.dropout)
-decoder = LuongDecoder(vocab_size = len(zh_wtoi), embed_size = args.emb_size, enc_hidden_size = args.enc_hidden_size,
+decoder = LuongDecoder(vocab_size = len(vocab_cn), embed_size = args.emb_size, enc_hidden_size = args.enc_hidden_size,
                        dec_hidden_size = args.dec_hidden_size, dropout = args.dropout)
 # decoder = PlainDecoder(vocab_size = len(zh_wtoi), embed_size = EMBED_SIZE, enc_hidden_size = ENC_HIDDEN_SIZE,
 #                        dec_hidden_size = DEC_HIDDEN_SIZE, dropout = DROPOUT)
@@ -52,7 +62,7 @@ model = seq2seq(encoder, decoder)
 # 使用分布式训练
 local_rank = int(os.environ["LOCAL_RANK"])
 torch.cuda.set_device(local_rank)
-torch.distributed.init_process_group(backend = 'nccl')
+
 model = model.cuda()
 model = torch.nn.parallel.DistributedDataParallel(model)
 

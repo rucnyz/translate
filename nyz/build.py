@@ -32,6 +32,7 @@ def compute_args(data_root):
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', type = str, default = "Transformer", choices = ["Transformer"])
     parser.add_argument('--batch_size', type = int, default = 50)
+    parser.add_argument('--num_workers', type = int, default = 0)
     parser.add_argument('--epoch', type = int, default = 3)
     parser.add_argument('--vocab_size', type = int, default = 50000)
     parser.add_argument('--truncate_size', type = int, default = 128)
@@ -94,7 +95,7 @@ def build_vocab(args):
         vocab_cn.set_default_index(vocab_cn['<unk>'])
         torch.save(vocab_cn, "en-zh/vocab_cn.pt")
     print("中文读入完成")
-    print("所用时间: {:.4f}".format(time.time() - start_time))
+    print("所用时间: {:.4f}s".format(time.time() - start_time))
     return tokenizer_en, tokenizer_cn, vocab_en, vocab_cn
 
 
